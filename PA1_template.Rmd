@@ -1,0 +1,87 @@
+---
+title: "Reproducible Research: Peer Assessment 1"
+output: 
+  html_document:
+    keep_md: true
+---
+
+
+## Loading and preprocessing the data
+
+```{r}
+setwd("~/Desktop/RepData_PeerAssessment1-master")
+data <- read.csv("activity.csv")
+```
+
+## What is mean total number of steps taken per day?
+
+```{r}
+data_total_steps <- tapply(data$steps, data$date, 
+      FUN=sum, na.rm=TRUE)
+library(ggplot2)
+qplot(data_total_steps,
+      xlab = "Daily Steps",
+      binwidth = 500)
+
+mean(data_total_steps)
+median(data_total_steps)
+```
+
+## What is the average daily activity pattern?
+
+```{r}
+data_5min_av <- aggregate(x=list(steps=data$steps), by=list(interval=data$interval),
+      FUN=mean, na.rm=TRUE)
+qplot(interval,steps,data = data_5min_av, 
+      geom = "line", 
+      xlab = "5min Time Intervals", 
+      ylab = "Average Steps")
+
+data_5min_av[which.max(data_5min_av$steps),]
+```
+
+## Imputing missing values
+
+```{r}
+data_steps_na <- sum(is.na(data$steps))
+data_steps_na
+
+library(magrittr)
+library(dplyr)
+
+replacewithmean <- function(x) 
+      replace(x, is.na(x), mean(x, na.rm = TRUE))
+meandata <- data%>% 
+      group_by(interval) %>% 
+      mutate(steps= replacewithmean(steps))
+
+hist(meandata$steps)
+
+FullSummedDataByDay <- aggregate(meandata$steps, by=list(meandata$date), sum)
+
+names(FullSummedDataByDay)[1] ="date"
+names(FullSummedDataByDay)[2] ="totalsteps"
+head(FullSummedDataByDay,15)
+
+```
+
+## Are there differences in activity patterns between weekdays and weekends?
+
+```{r}
+weekday_weekend <- function(date) {
+    day <- weekdays(date)
+    if (day %in% c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday"))
+        return("weekday")
+    else if (day %in% c("Saturday", "Sunday"))
+        return("weekend")
+    else
+        stop("invalid date")
+}
+
+data$date <- as.Date(data$date)  
+data$day <- sapply(data$date, FUN=weekday_weekend)
+
+data_av <- aggregate(steps ~ interval + day, data=data, mean)
+ggplot(data_av, aes(interval,steps)) + geom_line() + facet_grid(day ~ .)
+
+```
